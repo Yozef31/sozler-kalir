@@ -11,10 +11,6 @@ app.secret_key = secrets.token_hex(32)
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
-# HASHLENMİŞ ŞİFRELER
-SITE_PASSWORD_HASH = generate_password_hash("1806")
-ADMIN_PASSWORD_HASH = generate_password_hash("0000")
-
 
 # ------------------ DATABASE ------------------
 
@@ -37,10 +33,11 @@ def init_db():
     conn.close()
 
 
-init_db()
-
-
 # ------------------ LOGIN ------------------
+
+SITE_PASSWORD_HASH = generate_password_hash("1806")
+ADMIN_PASSWORD_HASH = generate_password_hash("0000")
+
 
 @app.route("/", methods=["GET", "POST"])
 def login():
@@ -75,9 +72,7 @@ def site():
     conn = get_connection()
     c = conn.cursor()
 
-    # SPAM KORUMA (5 saniye)
     if request.method == "POST":
-
         now = time.time()
         last_post = session.get("last_post_time", 0)
 
@@ -158,12 +153,6 @@ def site():
         background: linear-gradient(90deg,#ff6a00,#ee0979);
         color:white;
         cursor:pointer;
-        transition:0.3s;
-    }}
-
-    button:hover {{
-        transform:scale(1.07);
-        box-shadow:0 10px 25px rgba(255,0,100,0.4);
     }}
 
     .message {{
@@ -172,18 +161,11 @@ def site():
         background: rgba(255,255,255,0.07);
         padding:20px;
         border-radius:20px;
-        backdrop-filter: blur(8px);
-        animation:fadeIn 0.6s ease;
     }}
 
     .date {{
         opacity:0.6;
         font-size:12px;
-    }}
-
-    @keyframes fadeIn {{
-        from {{opacity:0; transform:translateY(15px);}}
-        to {{opacity:1; transform:translateY(0);}}
     }}
     </style>
     </head>
@@ -259,6 +241,15 @@ def admin_panel():
     </body>
     </html>
     """
+
+
+# ---- INIT DB SAFE START ----
+
+if DATABASE_URL:
+    try:
+        init_db()
+    except Exception as e:
+        print("Database init error:", e)
 
 
 if __name__ == "__main__":
