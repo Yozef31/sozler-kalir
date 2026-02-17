@@ -1,14 +1,15 @@
-import sqlite3
+import os
 import datetime
 import secrets
 import time
+import psycopg2
 from flask import Flask, request, redirect, session
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
 
-DATABASE = "database.db"
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 # HASHLENMİŞ ŞİFRELER
 SITE_PASSWORD_HASH = generate_password_hash("1806")
@@ -17,12 +18,16 @@ ADMIN_PASSWORD_HASH = generate_password_hash("0000")
 
 # ------------------ DATABASE ------------------
 
+def get_connection():
+    return psycopg2.connect(DATABASE_URL)
+
+
 def init_db():
-    conn = sqlite3.connect(DATABASE)
+    conn = get_connection()
     c = conn.cursor()
     c.execute("""
         CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             name TEXT,
             content TEXT,
             date TEXT
@@ -30,6 +35,7 @@ def init_db():
     """)
     conn.commit()
     conn.close()
+
 
 init_db()
 
@@ -66,7 +72,7 @@ def site():
     if not session.get("logged_in"):
         return redirect("/")
 
-    conn = sqlite3.connect(DATABASE)
+    conn = get_connection()
     c = conn.cursor()
 
     # SPAM KORUMA (5 saniye)
@@ -83,8 +89,10 @@ def site():
 
         if content and len(content) < 500:
             date = datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
-            c.execute("INSERT INTO messages (name, content, date) VALUES (?, ?, ?)",
-                      (name, content, date))
+            c.execute(
+                "INSERT INTO messages (name, content, date) VALUES (%s, %s, %s)",
+                (name, content, date)
+            )
             conn.commit()
             session["last_post_time"] = now
 
@@ -219,11 +227,11 @@ def admin_panel():
         </html>
         """
 
-    conn = sqlite3.connect(DATABASE)
+    conn = get_connection()
     c = conn.cursor()
 
     if request.method == "POST" and request.form.get("delete_id"):
-        c.execute("DELETE FROM messages WHERE id=?", (request.form.get("delete_id"),))
+        c.execute("DELETE FROM messages WHERE id=%s", (request.form.get("delete_id"),))
         conn.commit()
 
     c.execute("SELECT * FROM messages ORDER BY id DESC")
@@ -252,8 +260,6 @@ def admin_panel():
     </html>
     """
 
-
-import os
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
